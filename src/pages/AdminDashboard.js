@@ -118,7 +118,7 @@ function AdminDashboard() {
         <table style={bookingTableStyle}>
           <thead style={headerRowStyle}>
             <tr>
-              <th style={cellStyle}>#</th>
+              <th style={cellStyle}>Sr.no</th>               
               <th style={cellStyle}>Student</th>
               <th style={cellStyle}>Counsellor</th>
               <th style={cellStyle}>Status</th>
@@ -171,7 +171,7 @@ const containerStyle = {
 };
 
 const headerStyle = {
-  backgroundColor: "#27ae60",
+  backgroundColor: "#0d7ac2ff",
   padding: "20px",
   textAlign: "center",
   color: "white"
@@ -179,7 +179,7 @@ const headerStyle = {
 
 const logoStyle = {
   margin: 0,
-  fontSize: "48px",
+  fontSize: "40px",
   fontWeight: "bold"
 };
 
@@ -231,7 +231,7 @@ const studentsGridStyle = {
 const studentCardStyle = {
   width: "100px",
   height: "100px",
-  backgroundColor: "#3498db",
+  backgroundColor: "#68bff9ff",
   color: "white",
   borderRadius: "50%",
   display: "flex",

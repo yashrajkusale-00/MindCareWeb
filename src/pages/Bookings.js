@@ -65,7 +65,7 @@ function Bookings() {
         <table style={bookingTableStyle}>
           <thead style={headerRowStyle}>
             <tr>
-              <th style={cellStyle}>#</th>
+              <th style={cellStyle}>Sr.No</th>
               <th style={cellStyle}>Student</th>
               <th style={cellStyle}>Counsellor</th>
               <th style={cellStyle}>Status</th>
