@@ -1,4 +1,5 @@
 import React from "react";
+import { BiFontFamily } from "react-icons/bi";
 import { useNavigate } from "react-router-dom";
 
 function SelectRole() {
@@ -32,7 +33,7 @@ const containerStyle = {
   justifyContent: "center",
   height: "100vh",
   textAlign: "center",
-  backgroundImage: 'url("https://images.unsplash.com/photo-1503676260728-1c00da094a0b")',
+  backgroundImage: 'url("/bg.jpeg")',
   backgroundSize: "cover",
   backgroundPosition: "center",
 };
@@ -44,13 +45,13 @@ const buttonStyle = {
   cursor: "pointer",
   border: "none",
   borderRadius: "5px",
-  backgroundColor: "#000000ff",
-  color: "white",
+  backgroundColor: "#060505ff",
+  color: "white"
 };
 
 const headerStyle = {
-  color: "red",
-  textShadow: "2px 2px 4px rgba(0, 0, 0, 0.7)",
+  color: "blue",
+  textShadow: "2px 2px 4px rgba(240, 64, 64, 0.7)",
   position: "absolute",
   top: "150px",
   fontSize: "32px"

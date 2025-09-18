@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc,query,orderBy,addDoc,onSnapshot,serverTimestamp} from "firebase/firestore";
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
@@ -7,18 +7,36 @@ function ForumManagement() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chats, setChats] = useState({});
   const navigate = useNavigate();
 
   // Fetch forum messages
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, "forums"));
+      //query with orderby --->latest first
+      const q = query(collection(db, "forums"), orderBy("createdAt","desc"));
+      const querySnapshot = await getDocs(q);
       const msgs = querySnapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
       }));
       setMessages(msgs);
+
+      // Listen for chats for each forum post
+      msgs.forEach((msg) => {
+        const unsub = onSnapshot(
+          collection(db, "forums", msg.id, "chats"),
+          (snapshot) => {
+            setChats((prev) => ({
+              ...prev,
+              [msg.id]: snapshot.docs.map((d) => ({ id: d.id, ...d.data() })),
+            }));
+          }
+        );
+        return () => unsub();
+      });
+
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
@@ -29,7 +47,23 @@ function ForumManagement() {
     fetchMessages();
   }, []);
 
-  // Delete a message
+  //Admin reply(Chat)
+  const adminchat = async (id) => {
+    const reply = window.prompt("Enter your reply:");
+    if (reply && reply.trim() !== "") {
+      try {
+        await addDoc(collection(db, "forums", id, "chats"), {
+          sender: "admin",
+          createdAt: serverTimestamp(),
+        });
+        alert("Reply sent successfully!");
+      } catch (error) {
+        console.error("Error sending reply:", error);
+      }
+    }
+  };
+
+  // Delete a forum message
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this message?")) {
       try {
@@ -84,8 +118,7 @@ function ForumManagement() {
             </p>
             <p style={menuItemStyle} onClick={() => navigate("/settings")}>
               Settings
-            </p>
-            
+            </p> 
           </nav>
         </aside>
       )}
@@ -120,12 +153,30 @@ function ForumManagement() {
                         : ""}
                     </small>
                   </p>
+                  {/* Show chats */}
+                  {chats[msg.id] && chats[msg.id].length > 0 && (
+                    <div style={{ marginTop: "10px", paddingLeft: "10px" }}>
+                      <strong>Replies:</strong>
+                      {chats[msg.id].map((c) => (
+                        <p key={c.id}>
+                          <strong>{c.sender}:</strong> {c.text}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    style={chatButtonStyle}
+                    onClick={() => adminchat(msg.id)}
+                  >
+                    Reply
+                  </button>
                   <button
                     style={deleteButtonStyle}
                     onClick={() => handleDelete(msg.id)}
                   >
                     Delete
-                  </button>
+                  </button> 
                 </li>
               ))}
             </ul>
@@ -235,6 +286,17 @@ const messageListStyle = {
 const messageItemStyle = {
   borderBottom: "1px solid #ddd",
   padding: "15px 0",
+};
+
+const chatButtonStyle = {
+  padding: "5px 12px",
+  backgroundColor: "#3498db",
+  color: "white",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  marginTop: "10px",
+  marginRight: "10px",
 };
 
 const deleteButtonStyle = {
