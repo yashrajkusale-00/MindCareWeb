@@ -13,6 +13,7 @@ import Settings from "./pages/Settings";
 import ForumManagement from "./pages/ForumManagement";
 import CounsellorDashboard from "./pages/CounsellorDashboard";
 import CounsellorBookings from "./pages/CounsellorBookings";
+import CounsellorResources from "./pages/CounsellorResources";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
         <Route path="/counsellor-register" element={<CounsellorRegister />} />
         <Route path="/counsellor-dashboard" element={<CounsellorDashboard />} />
         <Route path="/counsellor-bookings" element={<CounsellorBookings />} />
+        <Route path="/counsellor-resources" element={<CounsellorResources />} />
       </Routes>
     </Router>
   );
