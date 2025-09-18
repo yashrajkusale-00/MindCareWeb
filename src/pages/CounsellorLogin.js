@@ -22,7 +22,7 @@ function CounsellorLogin() {
   return (
     <div style={containerStyle}>
       <div style={formWrapperStyle}>
-        <h2 style={{ textAlign: "center" }}>Counsellor Login</h2>
+        <h2 style={{ textAlign: "center" }}>Counselor Login</h2>
         <form onSubmit={handleLogin} style={formStyle}>
           <div style={fieldStyle}>
             <label>Email</label><br />
