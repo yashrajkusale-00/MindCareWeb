@@ -13,14 +13,14 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-function Analytics() {
+function CounsellorAnalytics() {
   const navigate = useNavigate();
-  const { prn: routePrn } = useParams(); // 👈 catch PRN from URL
+  const { prn: routePrn } = useParams(); // optional PRN from URL
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [moodData, setMoodData] = useState([]);
   const [screeningData, setScreeningData] = useState([]);
-  const [prns, setPrns] = useState([]);
+  const [bookedPrns, setBookedPrns] = useState([]);
   const [selectedPrn, setSelectedPrn] = useState(routePrn || "");
 
   const handleLogout = async () => {
@@ -28,63 +28,71 @@ function Analytics() {
     navigate("/");
   };
 
-  // 🔥 Fetch mood data
+  // Fetch booked students from bookings collection
+  const [bookings, setBookings] = useState([]);
+  useEffect(() => {
+    const fetchBookings = async () => {
+      const snapshot = await getDocs(collection(db, "bookings"));
+      const booked = snapshot.docs.map((doc) => doc.data().prn).filter(Boolean);
+      const uniqueBooked = [...new Set(booked)];
+      setBookedPrns(uniqueBooked);
+
+      if (!selectedPrn && uniqueBooked.length > 0) {
+        setSelectedPrn(uniqueBooked[0]);
+      }
+
+      setBookings(uniqueBooked);
+    };
+    fetchBookings();
+  }, [selectedPrn]);
+
+  // Fetch mood data for only booked students
   useEffect(() => {
     const fetchMood = async () => {
       const querySnapshot = await getDocs(collection(db, "mood_check"));
-      const data = querySnapshot.docs.map((doc) => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          prn: d.prn,
-          mood: d.mood,
-          moodLabel:
-            d.mood > 0 ? "Happy 😀" : d.mood < 0 ? "Sad 😢" : "Neutral 😐",
-          timestamp: d.timestamp?.toDate
-            ? d.timestamp.toDate()
-            : new Date(d.timestamp),
-        };
-      });
-
+      const data = querySnapshot.docs
+        .map((doc) => {
+          const d = doc.data();
+          return {
+            id: doc.id,
+            prn: d.prn,
+            mood: d.mood,
+            moodLabel:
+              d.mood > 0 ? "Happy 😀" : d.mood < 0 ? "Sad 😢" : "Neutral 😐",
+            timestamp: d.timestamp?.toDate ? d.timestamp.toDate() : new Date(d.timestamp),
+          };
+        })
+        .filter((item) => bookedPrns.includes(item.prn));
       setMoodData(data);
-
-      // unique PRNs
-      const uniquePrns = [...new Set(data.map((item) => item.prn))];
-      setPrns(uniquePrns);
-      if (!selectedPrn && uniquePrns.length > 0) {
-        setSelectedPrn(uniquePrns[0]);
-      }
     };
-
     fetchMood();
-  }, [selectedPrn]);
+  }, [bookedPrns]);
 
-  // 🔥 Fetch screening data
+  // Fetch screening data for only booked students
   useEffect(() => {
     const fetchScreening = async () => {
       const querySnapshot = await getDocs(collection(db, "screening"));
-      const data = querySnapshot.docs.map((doc) => {
-        const d = doc.data();
-        const createdAt = d.createdAt ? new Date(d.createdAt) : null;
-
-        return {
-          id: doc.id,
-          prn: d.prn,
-          testType: d.testType,
-          score: d.score,
-          answers: d.answers || [],
-          college: d.college,
-          createdAt,
-          formattedTime: createdAt ? createdAt.toLocaleString() : "N/A",
-        };
-      });
+      const data = querySnapshot.docs
+        .map((doc) => {
+          const d = doc.data();
+          const createdAt = d.createdAt ? new Date(d.createdAt) : null;
+          return {
+            id: doc.id,
+            prn: d.prn,
+            testType: d.testType,
+            score: d.score,
+            answers: d.answers || [],
+            college: d.college,
+            createdAt,
+            formattedTime: createdAt ? createdAt.toLocaleString() : "N/A",
+          };
+        })
+        .filter((item) => bookedPrns.includes(item.prn));
       setScreeningData(data);
     };
-
     fetchScreening();
-  }, []);
+  }, [bookedPrns]);
 
-  // Filtered data
   const filteredMood = moodData
     .filter((item) => item.prn === selectedPrn)
     .map((item) => ({
@@ -94,14 +102,11 @@ function Analytics() {
     }))
     .sort((a, b) => new Date(a.time) - new Date(b.time));
 
-  const filteredScreening = screeningData.filter(
-    (item) => item.prn === selectedPrn
-  );
+  const filteredScreening = screeningData.filter((item) => item.prn === selectedPrn);
 
   const phqData = filteredScreening.filter((item) => item.testType === "PHQ-9");
   const gadData = filteredScreening.filter((item) => item.testType === "GAD-7");
 
-  // Severity checkers
   const getSeverity = (testType, score) => {
     if (testType === "PHQ-9") {
       if (score >= 20) return "Severe depression";
@@ -142,44 +147,19 @@ function Analytics() {
 
           <div style={logoStyle}>MindCare</div>
           <nav style={{ width: "100%", marginTop: "20px" }}>
-            <p style={menuItemStyle} onClick={() => navigate("/admin-dashboard")}>
-              Dashboard
-            </p>
-            <p style={menuItemStyle} onClick={() => navigate("/bookings")}>
-              Bookings
-            </p>
-            <p style={menuItemStyle} onClick={() => navigate("/resources")}>
-              Resources
-            </p>
-            <p style={menuItemStyle} onClick={() => navigate("/analytics")}>
-              Analytics
-            </p>
-            <p
-              style={menuItemStyle}
-              onClick={() => navigate("/forum-management")}
-            >
-              Forum Management
-            </p>
-            <p style={menuItemStyle} onClick={() => navigate("/settings")}>
-              Settings
-            </p>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-dashboard")}>Dashboard</p>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-bookings")}>Bookings</p>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-resources")}>Resources</p>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-analytics")}>Analytics</p>
           </nav>
-          <button style={logoutButtonStyle} onClick={handleLogout}>
-            Logout
-          </button>
+          <button style={logoutButtonStyle} onClick={handleLogout}>Logout</button>
         </aside>
       )}
 
-      {/* Main */}
-      <main
-        style={{
-          ...mainContentStyle,
-          marginLeft: sidebarOpen ? "230px" : "0",
-        }}
-      >
+      {/* Main content */}
+      <main style={{ ...mainContentStyle, marginLeft: sidebarOpen ? "230px" : "0" }}>
         <h2>Mood & Screening Analytics</h2>
 
-        {/* Dropdown */}
         <div style={{ margin: "20px 0" }}>
           <label>Select Student (PRN): </label>
           <select
@@ -187,15 +167,12 @@ function Analytics() {
             onChange={(e) => setSelectedPrn(e.target.value)}
             style={inputStyle}
           >
-            {prns.map((prn) => (
-              <option key={prn} value={prn}>
-                {prn}
-              </option>
+            {bookedPrns.map((prn) => (
+              <option key={prn} value={prn}>{prn}</option>
             ))}
           </select>
         </div>
 
-        {/* Mood Chart */}
         <h3>Mood Tracking</h3>
         {filteredMood.length > 0 ? (
           <ResponsiveContainer width="100%" height={400}>
@@ -203,38 +180,25 @@ function Analytics() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="time" angle={0} textAnchor="end" height={90} />
               <YAxis />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const { moodLabel, time } = payload[0].payload;
-                    return (
-                      <div style={tooltipBox}>
-                        <p>
-                          <strong>Time:</strong> {time}
-                        </p>
-                        <p>
-                          <strong>Feeling:</strong> {moodLabel}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="mood"
-                stroke="#27ae60"
-                strokeWidth={3}
-                dot={{ r: 6 }}
-              />
+              <Tooltip content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const { moodLabel, time } = payload[0].payload;
+                  return (
+                    <div style={tooltipBox}>
+                      <p><strong>Time:</strong> {time}</p>
+                      <p><strong>Feeling:</strong> {moodLabel}</p>
+                    </div>
+                  );
+                }
+                return null;
+              }}/>
+              <Line type="monotone" dataKey="mood" stroke="#27ae60" strokeWidth={3} dot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
           <p>No mood data available for this student.</p>
         )}
 
-        {/* Screening Table */}
         <h3>Screening Results</h3>
         {filteredScreening.length > 0 ? (
           <table style={tableStyle}>
@@ -259,11 +223,8 @@ function Analytics() {
               ))}
             </tbody>
           </table>
-        ) : (
-          <p>No screening data available for this student.</p>
-        )}
+        ) : <p>No screening data available for this student.</p>}
 
-        {/* PHQ-9 Graph */}
         <h3>PHQ-9 Scores Over Time</h3>
         {phqData.length > 0 ? (
           <ResponsiveContainer width="100%" height={400}>
@@ -272,20 +233,11 @@ function Analytics() {
               <XAxis dataKey="formattedTime" height={90} />
               <YAxis />
               <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="#3498db"
-                strokeWidth={3}
-                dot={{ r: 6 }}
-              />
+              <Line type="monotone" dataKey="score" stroke="#3498db" strokeWidth={3} dot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
-        ) : (
-          <p>No PHQ-9 data available.</p>
-        )}
+        ) : <p>No PHQ-9 data available.</p>}
 
-        {/* GAD-7 Graph */}
         <h3>GAD-7 Scores Over Time</h3>
         {gadData.length > 0 ? (
           <ResponsiveContainer width="100%" height={400}>
@@ -294,24 +246,16 @@ function Analytics() {
               <XAxis dataKey="formattedTime" height={90} />
               <YAxis />
               <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="#e67e22"
-                strokeWidth={3}
-                dot={{ r: 6 }}
-              />
+              <Line type="monotone" dataKey="score" stroke="#e67e22" strokeWidth={3} dot={{ r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
-        ) : (
-          <p>No GAD-7 data available.</p>
-        )}
+        ) : <p>No GAD-7 data available.</p>}
       </main>
     </div>
   );
 }
 
-/* --- styles --- */
+/* --- Styles --- */
 const containerStyle = { display: "flex", flexDirection: "column", height: "100vh", fontFamily: "Arial, sans-serif" };
 const hamburgerStyle = { position: "absolute", top: "15px", left: "15px", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "24px", width: "35px", zIndex: 1000 };
 const hamburgerInsideStyle = { cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "20px", width: "25px", marginBottom: "20px", alignSelf: "flex-start" };
@@ -327,4 +271,4 @@ const thStyle = { border: "1px solid #ccc", padding: "8px", background: "#bdc3c7
 const tdStyle = { border: "1px solid #ccc", padding: "8px", textAlign: "center" };
 const tooltipBox = { background: "white", border: "1px solid #ccc", padding: "10px", borderRadius: "5px" };
 
-export default Analytics;
+export default CounsellorAnalytics;

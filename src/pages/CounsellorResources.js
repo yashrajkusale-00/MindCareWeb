@@ -1,287 +1,226 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
+import { collection, addDoc, getDocs } from "firebase/firestore";
 
-function Resources() {
+function CounsellorResources() {
+  const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Form fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [link, setLink] = useState("");
-  const [studentId, setStudentId] = useState("");
-  const [category, setCategory] = useState(""); 
+  const [category, setCategory] = useState("");
   const [type, setType] = useState("");
-  const [editing, setEditing] = useState(null);
-
-  // Replace this with real role fetch later
-  const [userRole] = useState("counsellor");
+  const [url, setUrl] = useState("");
+  const [prn, setPrn] = useState("");
 
   // Fetch resources
-  const fetchResources = async () => {
-    setLoading(true);
-    try {
-      const querySnapshot = await getDocs(collection(db, "resources"));
-      const data = querySnapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
-      setResources(data);
-    } catch (error) {
-      console.error("Error fetching resources:", error);
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
+    const fetchResources = async () => {
+      setLoading(true);
+      try {
+        const querySnapshot = await getDocs(collection(db, "resources"));
+        const data = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setResources(data);
+      } catch (err) {
+        console.error("Error fetching resources:", err);
+      }
+      setLoading(false);
+    };
     fetchResources();
   }, []);
 
-  const studentAnalysis = {
-    "stu1": "Anxiety",
-    "stu2": "Exam Stress",
-    "stu3": "Sleep Issues",
-  };
-
-  // Auto-fill category when student selected
-  useEffect(() => {
-    if (studentId) {
-      setCategory(studentAnalysis[studentId] || "");
-    }
-  }, [studentId]);
-
-  //Add resource
-  const handleAddResource = async () => {
-    if (!title || !description || !studentId || !type) {
-      alert("Please fill all required fields.");
+  const handleAddResource = async (e) => {
+    e.preventDefault();
+    if (!title || !description || !category || !type || !url || !prn) {
+      alert("Please fill all fields including PRN!");
       return;
     }
-    try {
-      const resource = {
-        title,
-        description,
-        link,
-        studentId,
-        category,
-        type,
-        addedBy: auth.currentUser?.uid || "unknown",
-        createdAt: new Date(),
-      };
-      await addDoc(collection(db, "resources"), resource);
-      alert("Resource added!");
-      resetForm();
-      fetchResources();
-    } catch (error) {
-      console.error("Error adding resource:", error);
-    }
-  };
 
-  //Update resource
-  const handleUpdateResource = async () => {
-    if (!editing) return;
     try {
-      const resourceDoc = doc(db, "resources", editing.id);
-      await updateDoc(resourceDoc, {
+      await addDoc(collection(db, "resources"), {
         title,
         description,
-        link,
-        studentId,
         category,
         type,
+        url,
+        prn,
       });
-      alert("Resource updated!");
-      resetForm();
-      fetchResources();
-    } catch (error) {
-      console.error("Error updating resource:", error);
+
+      // Clear form
+      setTitle("");
+      setDescription("");
+      setCategory("");
+      setType("");
+      setUrl("");
+      setPrn("");
+
+      // Refresh table
+      const querySnapshot = await getDocs(collection(db, "resources"));
+      const data = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setResources(data);
+    } catch (err) {
+      console.error("Error adding resource:", err);
     }
   };
 
-  // Delete resource
-  const handleDeleteResource = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this resource?")) return;
-    try {
-      await deleteDoc(doc(db, "resources", id));
-      alert("Resource deleted!");
-      fetchResources();
-    } catch (error) {
-      console.error("Error deleting resource:", error);
-    }
-  };
-
-  // Enter edit mode
-  const startEditing = (res) => {
-    setEditing(res);
-    setTitle(res.title);
-    setDescription(res.description);
-    setLink(res.link || "");
-    setStudentId(res.studentId || "");
-    setCategory(res.category || "");
-    setType(res.type || "");
-  };
-
-  //Reset form
-  const resetForm = () => {
-    setEditing(null);
-    setTitle("");
-    setDescription("");
-    setLink("");
-    setStudentId("");
-    setCategory("");
-    setType("");
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/");
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Resources</h2>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "Arial, sans-serif" }}>
+      {/* Hamburger Icon */}
+      <div style={hamburgerStyle} onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <div style={lineStyle}></div>
+        <div style={lineStyle}></div>
+        <div style={lineStyle}></div>
+      </div>
 
-      {/* Form for counsellors only */}
-      {userRole === "counsellor" && (
-        <div
-          style={{
-            background: "#fff",
-            padding: "20px",
-            borderRadius: "10px",
-            boxShadow: "0px 2px 8px rgba(0,0,0,0.1)",
-            marginBottom: "20px",
-            maxWidth: "600px",
-          }}
-        >
-          <h3>{editing ? "Edit Resource" : "Add New Resource"}</h3>
+      {/* Sidebar */}
+      {sidebarOpen && (
+        <aside style={sideMenuStyle}>
+          <div
+            style={hamburgerInsideStyle}
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <div style={lineStyle}></div>
+            <div style={lineStyle}></div>
+            <div style={lineStyle}></div>
+          </div>
 
+          <div style={logoStyle}>MindCare</div>
+          <nav style={{ width: "100%", marginTop: "20px" }}>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-dashboard")}>Dashboard</p>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-bookings")}>Bookings</p>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-resources")}>Resources</p>
+            <p style={menuItemStyle} onClick={() => navigate("/counsellor-analytics")}>Analytics</p>
+          </nav>
+          <button style={logoutButtonStyle} onClick={handleLogout}>Logout</button>
+        </aside>
+      )}
+
+      {/* Main Content */}
+      <main style={{ flex: 1, padding: "20px", backgroundColor: "#ecf0f1", marginLeft: sidebarOpen ? "230px" : "0", overflowY: "auto" }}>
+        <h2>Manage Resources</h2>
+
+        {/* Full-width Form */}
+        <form onSubmit={handleAddResource} style={formStyle}>
           <input
             type="text"
             placeholder="Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            style={{ display: "block", marginBottom: "10px", width: "100%", padding: "8px" }}
+            style={inputStyle}
+            required
           />
           <textarea
             placeholder="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            style={{ display: "block", marginBottom: "10px", width: "100%", padding: "8px" }}
+            style={inputStyle}
+            required
           />
-          <select
-            value={studentId}
-            onChange={(e) => setStudentId(e.target.value)}
-            style={{ display: "block", marginBottom: "10px", width: "100%", padding: "8px" }}
-          >
-            <option value="">-- Select Student --</option>
-            <option value="stu1">Student 1</option>
-            <option value="stu2">Student 2</option>
-            <option value="stu3">Student 3</option>
-          </select>
           <input
             type="text"
-            placeholder="Category (auto)"
+            placeholder="Category"
             value={category}
-            readOnly
-            style={{ display: "block", marginBottom: "10px", width: "100%", padding: "8px", background: "#f0f0f0" }}
+            onChange={(e) => setCategory(e.target.value)}
+            style={inputStyle}
+            required
           />
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            style={{ display: "block", marginBottom: "10px", width: "100%", padding: "8px" }}
-          >
+          <select value={type} onChange={(e) => setType(e.target.value)} style={inputStyle} required>
             <option value="">-- Select Type --</option>
             <option value="audio">Audio</option>
             <option value="video">Video</option>
             <option value="pdf">PDF</option>
+            <option value="article">Article</option>
           </select>
           <input
-            type="text"
-            placeholder="Resource Link"
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            style={{ display: "block", marginBottom: "10px", width: "100%", padding: "8px" }}
+            type="url"
+            placeholder="Resource URL"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            style={inputStyle}
+            required
           />
-          <button
-            onClick={editing ? handleUpdateResource : handleAddResource}
-            style={{
-              background: "#28a745",
-              color: "white",
-              padding: "10px 15px",
-              border: "none",
-              borderRadius: "5px",
-              marginRight: "10px",
-            }}
-          >
-            {editing ? "Update Resource" : "Add Resource"}
-          </button>
-          {editing && (
-            <button onClick={resetForm} style={{ padding: "10px 15px" }}>
-              Cancel
-            </button>
-          )}
-        </div>
-      )}
+          <input
+            type="text"
+            placeholder="Student PRN"
+            value={prn}
+            onChange={(e) => setPrn(e.target.value)}
+            style={inputStyle}
+            required
+          />
+          <button type="submit" style={addButtonStyle}>Add Resource</button>
+        </form>
 
-      {/* Resource List */}
-      {loading ? (
-        <p>Loading resources...</p>
-      ) : resources.length === 0 ? (
-        <p>No resources found.</p>
-      ) : (
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            background: "#fff",
-            borderRadius: "10px",
-            overflow: "hidden",
-          }}
-        >
-          <thead style={{ background: "#f5f5f5" }}>
-            <tr>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>Title</th>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>Description</th>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>Student</th>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>Category</th>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>Type</th>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>Link</th>
-              <th style={{ padding: "10px", border: "1px solid #ddd" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {resources.map((res) => (
-              <tr key={res.id}>
-                <td style={{ padding: "10px", border: "1px solid #ddd" }}>{res.title}</td>
-                <td style={{ padding: "10px", border: "1px solid #ddd" }}>{res.description}</td>
-                <td style={{ padding: "10px", border: "1px solid #ddd" }}>{res.studentId}</td>
-                <td style={{ padding: "10px", border: "1px solid #ddd" }}>{res.category}</td>
-                <td style={{ padding: "10px", border: "1px solid #ddd" }}>{res.type}</td>
-                <td style={{ padding: "10px", border: "1px solid #ddd" }}>
-                  {res.link && (
-                    <a href={res.link} target="_blank" rel="noopener noreferrer">
-                      Open
-                    </a>
-                  )}
-                </td>
-                <td style={{ padding: "10px", border: "1px solid #ddd" }}>
-                  <button
-                    onClick={() => startEditing(res)}
-                    style={{ marginRight: "10px" }}
-                  >
-                    Edit
-                  </button>
-                  <button onClick={() => handleDeleteResource(res.id)}>Delete</button>
-                </td>
+        {/* Resources Table */}
+        {loading ? (
+          <p>Loading resources...</p>
+        ) : resources.length === 0 ? (
+          <p>No resources found.</p>
+        ) : (
+          <table style={tableStyle}>
+            <thead style={headerStyle}>
+              <tr>
+                <th style={cellStyle}>#</th>
+                <th style={cellStyle}>Title</th>
+                <th style={cellStyle}>Description</th>
+                <th style={cellStyle}>Category</th>
+                <th style={cellStyle}>Type</th>
+                <th style={cellStyle}>URL</th>
+                <th style={cellStyle}>PRN</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {resources.map((res, index) => (
+                <tr key={res.id}>
+                  <td style={cellStyle}>{index + 1}</td>
+                  <td style={cellStyle}>{res.title}</td>
+                  <td style={cellStyle}>{res.description}</td>
+                  <td style={cellStyle}>{res.category}</td>
+                  <td style={cellStyle}>{res.type}</td>
+                  <td style={cellStyle}>
+                    <a href={res.url} target="_blank" rel="noopener noreferrer">Open</a>
+                  </td>
+                  <td style={cellStyle}>{res.prn}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </main>
     </div>
   );
 }
 
-export default Resources;
+// Styles
+const hamburgerStyle = { position: "absolute", top: "15px", left: "15px", cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "24px", width: "35px", zIndex: 1000 };
+const hamburgerInsideStyle = { cursor: "pointer", display: "flex", flexDirection: "column", justifyContent: "space-between", height: "20px", width: "25px", marginBottom: "20px", alignSelf: "flex-start" };
+const lineStyle = { height: "4px", backgroundColor: "#4b589fff", borderRadius: "2px" };
+const sideMenuStyle = { position: "fixed", top: 0, left: 0, height: "100%", width: "220px", backgroundColor: "#2c3e50", color: "white", padding: "20px 15px", display: "flex", flexDirection: "column", alignItems: "stretch", boxSizing: "border-box" };
+const logoStyle = { backgroundColor: "#27ae60", width: "100%", textAlign: "center", padding: "20px", borderRadius: "10px", fontSize: "24px", fontWeight: "bold", boxSizing: "border-box" };
+const menuItemStyle = { padding: "12px 15px", cursor: "pointer", borderBottom: "1px solid #34495e", textAlign: "left", width: "100%", boxSizing: "border-box", color: "white" };
+const logoutButtonStyle = { marginTop: "auto", marginBottom: "20px", padding: "10px 20px", backgroundColor: "#e74c3c", border: "1px solid #c0392b", borderRadius: "5px", color: "white", cursor: "pointer", width: "100%" };
+
+const formStyle = { display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px", width: "100%", backgroundColor: "white", padding: "15px", borderRadius: "8px", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" };
+const inputStyle = { padding: "10px", fontSize: "14px", width: "100%", boxSizing: "border-box", border: "1px solid #bdc3c7", borderRadius: "5px" };
+const addButtonStyle = { padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", width: "150px" };
+const tableStyle = { width: "100%", borderCollapse: "collapse", backgroundColor: "white", borderRadius: "8px", overflow: "hidden", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" };
+const headerStyle = { backgroundColor: "#2c3e50", color: "white" };
+const cellStyle = { border: "1px solid #bdc3c7", padding: "10px", textAlign: "center" };
+
+export default CounsellorResources;

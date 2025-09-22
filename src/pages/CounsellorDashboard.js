@@ -2,51 +2,83 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
 
 function CounsellorDashboard() {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/");
   };
 
-  // 🔥 Fetch students data
+  // 🔥 Fetch booked students + bookings
   useEffect(() => {
-    const fetchStudents = async () => {
+    const fetchData = async () => {
       try {
-        const collegeName = "I2IT"; // Replace with actual college if needed
+        const collegeName = "I2IT"; // replace with dynamic if needed
 
-        const querySnapshot = await getDocs(
+        // Get only students who have bookings
+        const studentsSnapshot = await getDocs(
           collection(db, "colleges", collegeName, "students")
         );
-
-        const studentList = querySnapshot.docs.map((doc) => ({
+        const allStudents = studentsSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
 
-        setStudents(studentList);
+        // Fetch bookings (pending/approved/rejected)
+        const bookingsSnapshot = await getDocs(
+          collection(db, "colleges", collegeName, "bookings")
+        );
+        const allBookings = bookingsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        // Filter only booked students
+        const bookedPrns = allBookings.map((b) => b.prn);
+        const bookedStudents = allStudents.filter((s) =>
+          bookedPrns.includes(s.prn)
+        );
+
+        setStudents(bookedStudents);
+        setBookings(allBookings);
       } catch (error) {
-        console.error("Error fetching students:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStudents();
+    fetchData();
   }, []);
 
-  // 🔥 Dummy bookings
-  const bookings = [
-    { id: 1, student: "Student A", status: "Pending", date: "2025-09-10", time: "10:00 AM" },
-    { id: 2, student: "Student B", status: "Approved", date: "2025-09-11", time: "11:30 AM" },
-    { id: 3, student: "Student C", status: "Rejected", date: "2025-09-12", time: "02:15 PM" }
-  ];
+  // 🔥 Approve / Reject booking
+  const handleStatusChange = async (bookingId, newStatus) => {
+    try {
+      const collegeName = "I2IT"; // replace with dynamic if needed
+      const bookingRef = doc(db, "colleges", collegeName, "bookings", bookingId);
+      await updateDoc(bookingRef, { status: newStatus });
+
+      // Update UI instantly
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId ? { ...b, status: newStatus } : b
+        )
+      );
+    } catch (error) {
+      console.error("Error updating booking:", error);
+    }
+  };
 
   return (
     <div style={containerStyle}>
@@ -58,10 +90,30 @@ function CounsellorDashboard() {
       {/* Navbar */}
       <nav style={navBarStyle}>
         <div style={navLeftStyle}>
-          <p style={navItemStyle} onClick={() => navigate("/counsellor-dashboard")}>Dashboard</p>
-          <p style={navItemStyle} onClick={() => navigate("/counsellor-bookings")}>Bookings</p>
-          <p style={navItemStyle} onClick={() => navigate("/counsellor-resources")}>Resources</p>
-          <p style={navItemStyle} onClick={() => navigate("/counsellor-analytics")}>Analytics</p>
+          <p
+            style={navItemStyle}
+            onClick={() => navigate("/counsellor-dashboard")}
+          >
+            Dashboard
+          </p>
+          <p
+            style={navItemStyle}
+            onClick={() => navigate("/counsellor-bookings")}
+          >
+            Bookings
+          </p>
+          <p
+            style={navItemStyle}
+            onClick={() => navigate("/counsellor-resources")}
+          >
+            Resources
+          </p>
+          <p
+            style={navItemStyle}
+            onClick={() => navigate("/counsellor-analytics")}
+          >
+            Analytics
+          </p>
         </div>
         <button
           style={logoutButtonStyle}
@@ -81,30 +133,18 @@ function CounsellorDashboard() {
 
       {/* Main Content */}
       <main style={mainContentStyle}>
-        <h2 style={{ textAlign: "center" }}>Students List</h2>
+        <h2 style={{ textAlign: "center" }}>Booked Students</h2>
         {loading ? (
-          <p style={{ textAlign: "center" }}>Loading students...</p>
+          <p style={{ textAlign: "center" }}>Loading...</p>
         ) : students.length === 0 ? (
-          <p style={{ textAlign: "center" }}>No students found.</p>
+          <p style={{ textAlign: "center" }}>No booked students.</p>
         ) : (
           <div style={studentsGridStyle}>
             {students.map((student) => (
-              <div
-                key={student.id}
-                style={studentCardStyle}
-                onClick={() => setSelectedStudent(student)}
-              >
-                {student.prn || student.id}
+              <div key={student.id} style={studentCardStyle}>
+                <p style={{ fontWeight: "bold" }}>{student.prn || student.id}</p>
               </div>
             ))}
-          </div>
-        )}
-
-        {selectedStudent && (
-          <div style={studentDetailStyle}>
-            <h3>{selectedStudent.name}</h3>
-            <p>PRN: {selectedStudent.prn}</p>
-            <p>Analytics: Placeholder for detailed data...</p>
           </div>
         )}
 
@@ -113,36 +153,58 @@ function CounsellorDashboard() {
           <thead style={headerRowStyle}>
             <tr>
               <th style={cellStyle}>#</th>
-              <th style={cellStyle}>Student</th>
+              <th style={cellStyle}>PRN</th>
               <th style={cellStyle}>Status</th>
               <th style={cellStyle}>Date</th>
               <th style={cellStyle}>Time</th>
+              <th style={cellStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {bookings.map((booking, index) => (
-              <tr key={booking.id}>
-                <td style={cellStyle}>{index + 1}</td>
-                <td style={cellStyle}>{booking.student}</td>
-                <td style={cellStyle}>
-                  <span
-                    style={{
-                      ...statusStyle,
-                      backgroundColor:
-                        booking.status === "Approved"
-                          ? "#2ecc71"
-                          : booking.status === "Rejected"
-                          ? "#e74c3c"
-                          : "#f39c12"
-                    }}
-                  >
-                    {booking.status}
-                  </span>
-                </td>
-                <td style={cellStyle}>{booking.date}</td>
-                <td style={cellStyle}>{booking.time}</td>
-              </tr>
-            ))}
+            {bookings
+              .slice()
+              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .map((booking, index) => (
+                <tr key={booking.id}>
+                  <td style={cellStyle}>{index + 1}</td>
+                  <td style={cellStyle}>{booking.prn}</td>
+                  <td style={cellStyle}>
+                    <span
+                      style={{
+                        ...statusStyle,
+                        backgroundColor:
+                          booking.status === "Approved"
+                            ? "#2ecc71"
+                            : booking.status === "Rejected"
+                            ? "#e74c3c"
+                            : "#f39c12",
+                      }}
+                    >
+                      {booking.status}
+                    </span>
+                  </td>
+                  <td style={cellStyle}>{booking.date}</td>
+                  <td style={cellStyle}>{booking.time}</td>
+                  <td style={cellStyle}>
+                    <button
+                      style={approveButtonStyle}
+                      onClick={() =>
+                        handleStatusChange(booking.id, "Approved")
+                      }
+                    >
+                      Approve
+                    </button>
+                    <button
+                      style={rejectButtonStyle}
+                      onClick={() =>
+                        handleStatusChange(booking.id, "Rejected")
+                      }
+                    >
+                      Reject
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </main>
@@ -150,25 +212,25 @@ function CounsellorDashboard() {
   );
 }
 
-// Styles (same as in admin, but adjusted if needed)
+/* ---------- STYLES ---------- */
 const containerStyle = {
   fontFamily: "Arial, sans-serif",
   height: "100vh",
   display: "flex",
-  flexDirection: "column"
+  flexDirection: "column",
 };
 
 const headerStyle = {
   backgroundColor: "#27ae60",
   padding: "20px",
   textAlign: "center",
-  color: "white"
+  color: "white",
 };
 
 const logoStyle = {
   margin: 0,
   fontSize: "48px",
-  fontWeight: "bold"
+  fontWeight: "bold",
 };
 
 const navBarStyle = {
@@ -176,19 +238,19 @@ const navBarStyle = {
   justifyContent: "space-between",
   alignItems: "center",
   backgroundColor: "#2c3e50",
-  padding: "10px 20px"
+  padding: "10px 20px",
 };
 
 const navLeftStyle = {
   display: "flex",
-  gap: "20px"
+  gap: "20px",
 };
 
 const navItemStyle = {
   color: "white",
   cursor: "pointer",
   fontSize: "16px",
-  transition: "color 0.3s"
+  transition: "color 0.3s",
 };
 
 const logoutButtonStyle = {
@@ -200,45 +262,35 @@ const logoutButtonStyle = {
   cursor: "pointer",
   fontSize: "14px",
   fontWeight: "bold",
-  transition: "all 0.3s ease"
+  transition: "all 0.3s ease",
 };
 
 const mainContentStyle = {
   flex: 1,
   padding: "20px",
   backgroundColor: "#ecf0f1",
-  overflowY: "auto"
+  overflowY: "auto",
 };
 
 const studentsGridStyle = {
   display: "flex",
   gap: "20px",
   flexWrap: "wrap",
-  justifyContent: "center"
+  justifyContent: "center",
 };
 
 const studentCardStyle = {
-  width: "100px",
-  height: "100px",
+  width: "120px",
+  height: "120px",
   backgroundColor: "#3498db",
   color: "white",
-  borderRadius: "50%",
+  borderRadius: "12px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   cursor: "pointer",
   boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-  transition: "transform 0.2s"
-};
-
-const studentDetailStyle = {
-  marginTop: "30px",
-  backgroundColor: "white",
-  padding: "20px",
-  borderRadius: "8px",
-  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-  width: "300px",
-  textAlign: "center"
+  transition: "transform 0.2s",
 };
 
 const bookingTableStyle = {
@@ -248,19 +300,19 @@ const bookingTableStyle = {
   backgroundColor: "white",
   borderRadius: "8px",
   overflow: "hidden",
-  boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
 };
 
 const headerRowStyle = {
   backgroundColor: "#2c3e50",
-  color: "white"
+  color: "white",
 };
 
 const cellStyle = {
   border: "1px solid #bdc3c7",
   padding: "10px",
   textAlign: "center",
-  fontSize: "14px"
+  fontSize: "14px",
 };
 
 const statusStyle = {
@@ -269,7 +321,26 @@ const statusStyle = {
   borderRadius: "5px",
   color: "white",
   fontSize: "14px",
-  fontWeight: "bold"
+  fontWeight: "bold",
+};
+
+const approveButtonStyle = {
+  backgroundColor: "#2ecc71",
+  color: "white",
+  padding: "6px 12px",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
+  marginRight: "8px",
+};
+
+const rejectButtonStyle = {
+  backgroundColor: "#e74c3c",
+  color: "white",
+  padding: "6px 12px",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
 };
 
 export default CounsellorDashboard;

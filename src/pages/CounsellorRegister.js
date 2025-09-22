@@ -17,7 +17,7 @@ function CounsellorRegister() {
   const navigate = useNavigate();
 
   const institutions = [
-    "I2IT",
+    "I²IT",
     "College of Engineering Pune",
     "D.Y. Patil",
     "PCCOE",
